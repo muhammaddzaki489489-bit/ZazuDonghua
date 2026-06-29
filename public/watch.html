@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Watch</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-950 text-gray-100 min-h-screen font-sans">
+
+  <nav class="bg-gray-900 border-b border-gray-800 px-4 py-3">
+    <div class="max-w-7xl mx-auto">
+      <a href="index.html" class="text-2xl font-black tracking-wider text-cyan-400">ZAZU<span class="text-white">DONGHUA</span></a>
+    </div>
+  </nav>
+
+  <main class="max-w-5xl mx-auto px-4 py-8">
+    <h1 id="anime-title" class="text-2xl font-bold mb-4 text-cyan-400">Loading Donghua...</h1>
+    
+    <div class="bg-black aspect-video rounded-xl overflow-hidden border border-gray-800 shadow-2xl mb-6 relative">
+      <iframe id="video-player" src="" class="w-full h-full" allowfullscreen frameborder="0"></iframe>
+    </div>
+
+    <div class="mb-8">
+      <h3 class="text-sm font-bold text-gray-400 uppercase tracking-wider mb-3">Pilih Server Player:</h3>
+      <div id="server-list" class="flex flex-wrap gap-2"></div>
+    </div>
+
+    <div class="bg-gray-900 border border-gray-800 rounded-xl p-4">
+      <h3 class="font-bold border-b border-gray-800 pb-3 mb-4">Daftar Episode Terkait</h3>
+      <div id="episode-grid" class="grid grid-cols-3 sm:grid-cols-5 md:grid-cols-6 gap-2"></div>
+    </div>
+  </main>
+
+  <script>
+    const API_BASE = '/api';
+    const params = new URLSearchParams(window.location.search);
+    let currentSlug = params.get('slug');
+
+    async function loadWatchData() {
+      if (!currentSlug) {
+        window.location.href = 'index.html';
+        return;
+      }
+
+      try {
+        let endpoint = currentSlug.includes('episode') ? `${API_BASE}/episode/${currentSlug}` : `${API_BASE}/detail/${currentSlug}`;
+        const res = await fetch(endpoint);
+        const result = await res.json();
+        
+        document.getElementById('anime-title').innerText = result.data.title;
+        
+        let streams = result.data.streams || [];
+        let episodes = result.data.episodes || result.data.otherEpisodes || [];
+
+        if (streams.length === 0 && episodes.length > 0 && !currentSlug.includes('episode')) {
+          const firstEpSlug = episodes[0].url.split('/').filter(Boolean).pop();
+          window.location.href = `watch.html?slug=${firstEpSlug}`;
+          return;
+        }
+
+        const serverList = document.getElementById('server-list');
+        serverList.innerHTML = '';
+        if (streams.length > 0) {
+          streams.forEach((stream, index) => {
+            const btn = document.createElement('button');
+            btn.className = `px-4 py-2 rounded-lg font-bold text-xs transition ${index === 0 ? 'bg-cyan-500 text-gray-950' : 'bg-gray-800 text-gray-300'}`;
+            btn.innerText = `${stream.server || 'Server'} ${index + 1}`;
+            btn.onclick = () => {
+              document.querySelectorAll('#server-list button').forEach(b => b.className = 'px-4 py-2 rounded-lg font-bold text-xs bg-gray-800 text-gray-300');
+              btn.className = 'px-4 py-2 rounded-lg font-bold text-xs bg-cyan-500 text-gray-950';
+              changeStream(stream.url);
+            };
+            serverList.appendChild(btn);
+          });
+          changeStream(streams[0].url);
+        } else {
+          serverList.innerHTML = '<p class="text-red-400 text-sm">Gagal memuat link stream.</p>';
+        }
+
+        const epGrid = document.getElementById('episode-grid');
+        epGrid.innerHTML = '';
+        episodes.forEach(ep => {
+          const epSlug = ep.url.split('/').filter(Boolean).pop();
+          const epBtn = document.createElement('a');
+          epBtn.href = `watch.html?slug=${epSlug}`;
+          epBtn.className = `p-2 text-center text-sm font-semibold rounded-lg border transition ${epSlug === currentSlug ? 'bg-cyan-500/20 border-cyan-500 text-cyan-400' : 'bg-gray-800 border-transparent text-gray-300'}`;
+          epBtn.innerText = `Ep ${ep.episode || '#'}`;
+          epGrid.appendChild(epBtn);
+        });
+
+      } catch (err) {
+        document.getElementById('anime-title').innerText = "Gagal memproses data.";
+      }
+    }
+
+    function changeStream(url) {
+      document.getElementById('video-player').src = url;
+    }
+
+    window.onload = loadWatchData;
+  </script>
+</body>
+</html>
